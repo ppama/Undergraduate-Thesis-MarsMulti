@@ -17,6 +17,7 @@ class OrbitPropagator:
         self.n_steps=int(np.ceil(self.tspan/self.dt))
         
         #initialize arrays
+        
         self.ys=np.zeros((self.n_steps,6))#6 states, xyz, for position and v
         self.ts=np.zeros((self.n_steps,1))
         
