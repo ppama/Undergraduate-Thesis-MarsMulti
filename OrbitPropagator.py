@@ -1,13 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
+plt.style.use('dark_background')
 from scipy.integrate import ode
 from mpl_toolkits.mplot3d import Axes3D
 
 import planetary_data as pd
 import tools as t
 
+def null_perts(): #dictionary of perturbations
+    return {
+            'J2':False,
+            'aero':False,
+            'moon_grav':False,
+            'solar_grav':False,
+            
+    }
 class OrbitPropagator:
-    def __init__(self,state0,tspan,dt,coes=False,cb=pd.earth):
+    def __init__(self,state0,tspan,dt,coes=False,cb=pd.earth,perts=null_perts()):
         if coes:
             self.r0,self.v0=t.coes2rv(state0,deg=True,mu=cb['mu'])
         else:
@@ -34,6 +43,9 @@ class OrbitPropagator:
         self.solver.set_integrator('lsoda')
         self.solver.set_initial_value(self.y0,0)
         
+        # define perturbations dictionary
+        self.perts=perts
+        
     def propagate_orbit(self):
         
         #propagate orbit
@@ -46,7 +58,6 @@ class OrbitPropagator:
         self.rs=self.ys[:,:3]
         self.vs=self.ys[:,3:]
         
-        
     def diffy_q(self,t,y):
         # unpack state
         rx,ry,rz,vx,vy,vz=y
@@ -57,9 +68,21 @@ class OrbitPropagator:
         norm_r=np.linalg.norm(r)
         
         # two body acceleration
-        ax,ay,az=-r*self.cb['mu']/norm_r**3
+        a=-r*self.cb['mu']/norm_r**3
         
-        return [vx,vy,vz,ax,ay,az]
+        # J2 perturbation
+        if self.perts['J2']:
+            z2=r[2]**2
+            r2=norm_r**2
+            tx=r[0]/norm_r*(5*z2/r2-1)
+            ty=r[1]/norm_r*(5*z2/r2-1)
+            tz=r[2]/norm_r*(5*z2/r2-1)
+            
+            a_j2=1.5*self.cb['J2']*self.cb['mu']*self.cb['radius']**2/norm_r**4*np.array([tx,ty,tz])
+            
+            a+=a_j2
+        
+        return [vx,vy,vz,a[0],a[1],a[2]]
     
     def plot_3d(self,show_plot=False,save_plot=False,title='title'):
         # 3D plot

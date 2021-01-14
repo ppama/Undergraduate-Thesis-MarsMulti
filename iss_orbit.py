@@ -7,7 +7,6 @@ tspan=3600*24*1.0 # seconds
 dt = 10.0
 
 # central body
-
 cb=pd.earth
 
 if __name__ == '__main__':
