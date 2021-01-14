@@ -90,15 +90,15 @@ class OrbitPropagator:
         ax = fig.add_subplot(111,projection='3d')
         
         # plot trajectory and starting point 
-        ax.plot(self.rs[:,0],self.rs[:,1],self.rs[:,2],'k',label='Trajectory')
-        ax.plot([self.rs[0,0]],[self.rs[0,1]],[self.rs[0,2]],'wo',label='Initial Position')
+        ax.plot(self.rs[:,0],self.rs[:,1],self.rs[:,2],'k',label='Trajectory',zorder=10)
+        ax.plot([self.rs[0,0]],[self.rs[0,1]],[self.rs[0,2]],'wo',label='Initial Position',zorder=10)
         
         # plot central body
         _u,_v=np.mgrid[0:2*np.pi:20j,0:np.pi:10j]
         _x=self.cb['radius']*np.cos(_u)*np.sin(_v)
         _y=self.cb['radius']*np.sin(_u)*np.sin(_v)
         _z=self.cb['radius']*np.cos(_v)
-        ax.plot_surface(_x,_y,_z,cmap='Blues')
+        ax.plot_surface(_x,_y,_z,cmap='Blues',zorder=1)
         
         # plot the x,y,z vectors
         l = self.cb['radius']*2.0
