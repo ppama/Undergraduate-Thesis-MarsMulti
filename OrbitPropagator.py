@@ -7,9 +7,13 @@ import planetary_data as pd
 import tools as t
 
 class OrbitPropagator:
-    def __init__(self,r0,v0,tspan,dt,cb=pd.earth):
-        self.r0=r0
-        self.v0=v0
+    def __init__(self,state0,tspan,dt,coes=False,cb=pd.earth):
+        if coes:
+            self.r0,self.v0=t.coes2rv(state0,deg=True,mu=cb['mu'])
+        else:
+            self.r0=state0[:3]
+            self.v0=state0[3:]
+        
         self.y0=self.r0.tolist()+self.v0.tolist()
         self.tspan=tspan
         self.dt=dt
