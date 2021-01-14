@@ -12,8 +12,8 @@ cb=pd.mars
 
 if __name__ == '__main__':
     #initial conditions of orbit parameters
-    r_mag = cb['radius']+14500.0 # km mag -> magnitude
-    v_mag = np.sqrt(cb['mu']/r_mag) # km/s
+    r_mag = cb['radius']+100.0 # km mag -> magnitude
+    v_mag = np.sqrt(cb['mu']/r_mag)-1 # km/s
     
     #initial position and velocity vectors
     #r0=np.array([r_mag,0,0])
