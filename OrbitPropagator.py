@@ -16,7 +16,7 @@ def null_perts(): #dictionary of perturbations
             
     }
 class OrbitPropagator:
-    def __init__(self,state0,tspan,dt,coes=False,cb=pd.earth,perts=null_perts()):
+    def __init__(self,state0,tspan,dt,coes=False,deg=True,mass0=0,cb=pd.earth,perts=null_perts()):
         if coes:
             self.r0,self.v0=t.coes2rv(state0,deg=True,mu=cb['mu'])
         else:
@@ -27,6 +27,7 @@ class OrbitPropagator:
         self.tspan=tspan
         self.dt=dt
         self.cb=cb
+        self.mass=mass0
         
         #total number of steps
         self.n_steps=int(np.ceil(self.tspan/self.dt))
@@ -62,7 +63,7 @@ class OrbitPropagator:
         # unpack state
         rx,ry,rz,vx,vy,vz=y
         r=np.array([rx,ry,rz])
-        #v=np.array([vx,vy,vz])
+        v=np.array([vx,vy,vz])
         
         # norm of the radius vector
         norm_r=np.linalg.norm(r)
@@ -70,7 +71,7 @@ class OrbitPropagator:
         # two body acceleration
         a=-r*self.cb['mu']/norm_r**3
         
-        # J2 perturbation
+        # J2 perturbation oblateness
         if self.perts['J2']:
             z2=r[2]**2
             r2=norm_r**2
@@ -82,8 +83,43 @@ class OrbitPropagator:
             
             a+=a_j2
         
+        # aerodynamic drag
+        if self.perts['aero']:
+            # calculate altitude and air density
+            z=norm_r-self.cb['radius']
+            rho=t.calc_atmospheric_density(z)
+            
+            # calculate motion of spacecraft w/ respect to a rotating atmosphere
+            v_rel=v-np.cross(self.cb['atm_rot_vector'],r)
+            
+            drag=-v_rel*0.5*rho*t.norm(v_rel)*self.perts['Cd']*self.perts['A']/self.mass
+            
+            a+=drag
+        
         return [vx,vy,vz,a[0],a[1],a[2]]
     
+    # plot altitude over time
+    def plot_alts(self,show_plot=False,save_plot=False,hours=False,days=False,title='Radial Distance vs. Time'):
+        if hours:
+            ts=self.ts/3600.0
+            x_unit='Hours'
+        elif days:
+            ts=self.ts/(3600.0*24.0)
+            x_unit='Days'
+        else:
+            ts=self.ts:
+                x_unit='Seconds'
+        plt.figure(figsize=figsize)
+        plt.plot(ts,self.alts,'w')
+        plt.grid(True)
+        plt.xlabel('Time (%s)' % x_unit)
+        plt.ylabel('Altitude (km)')
+        plt.title(title)
+        if show_plot:
+            plt.show()
+        if save_plot:
+            plt.savefig(title+'.png',dpi=300)
+            
     def plot_3d(self,show_plot=False,save_plot=False,title='title'):
         # 3D plot
         fig = plt.figure(figsize=(16,8))

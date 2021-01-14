@@ -88,7 +88,6 @@ def eci2perif(raan,aop,i):
     row2=[m.sin(raan)*m.sin(i),-m.cos(raan)*m.sin(i),m.cos(i)]
     return np.array([row0,row1,row2])
     
-
 #gives true anomaly and eccentricity (keplerian)
 def ecc_anomaly(arr,method,tol=1e-8):
     if method=='newton':
@@ -112,3 +111,25 @@ def ecc_anomaly(arr,method,tol=1e-8):
     else:
         print('Invalid method for eccentric anomaly')
                 
+
+        
+        
+# calculate atmospheric density from given altitude
+def calc_atmospheric_density(z):
+    rhos,zs=find_rho_z(z)
+    if rhos[0]==0: return 0.0
+    
+    Hi=-(zs[1]-zs[0])/m.log(rhos[1]/rhos[0]) # interpolate between 2 data points using exponential fxn
+    
+    return rhos[0]*m.exp(-(z-zs[0])/Hi)
+
+# find endpoints of altitude and density surrounding input altitude
+def find_rho_z(z,zs=pd.earth['zs'],rhos=pd.earth['rhos']):
+    if not 1.0<z<1000.0: # no atmosphere beyond 1km altitude
+        return [[0.0,0.0],[0.0,0.0]]
+    
+    # find the two points surrounding the given input altitude
+    for n in range(len(rhos)-1):
+        if zs[n]<z<zs[n+1]: #within which 2 altitude values
+            return [[rhos[n],rhos[n+1]],[zs[n],zs[n+1]]]
+        
