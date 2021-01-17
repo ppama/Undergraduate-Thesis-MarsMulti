@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-plt.style.use('dark_background')
+#plt.style.use('dark_background')
 from scipy.integrate import ode
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -107,9 +107,10 @@ class OrbitPropagator:
             ts=self.ts/(3600.0*24.0)
             x_unit='Days'
         else:
-            ts=self.ts:
-                x_unit='Seconds'
-        plt.figure(figsize=figsize)
+            ts=self.ts
+            x_unit='Seconds'
+            
+        #plt.figure(figsize=figsize)
         plt.plot(ts,self.alts,'w')
         plt.grid(True)
         plt.xlabel('Time (%s)' % x_unit)

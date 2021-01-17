@@ -10,7 +10,7 @@ dt = 10.0
 cb=pd.earth
 
 if __name__ == '__main__':
-    #,e,i,ta,aop,raan=coes
+    #r,e,i,ta,aop,raan=coes
     
     # ISS
     c0=[cb['radius']+414.0,0.0000291,51.6425,0.0,285.3988,22.3967]
