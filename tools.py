@@ -11,6 +11,10 @@ import datetime
 import planetary_data as pd
 
 d2r=np.pi/180.0
+r2d=180.0/np.pi
+
+def norm(v):
+    return np.linalg.norm(v)
 
 def plot_n_orbits(rs,labels,cb=pd.earth,show_plot=False,save_plot=False,title='multiple orbits'):
     # 3D plot
@@ -20,8 +24,8 @@ def plot_n_orbits(rs,labels,cb=pd.earth,show_plot=False,save_plot=False,title='m
     # plot trajectory and starting point
     n=0
     for r in rs:
-        ax.plot(r[:,0],r[:,1],r[:,2],label=labels[n])
-        ax.plot([r[0,0]],[r[0,1]],[r[0,2]])
+        ax.plot(r[:,0],r[:,1],r[:,2],label=labels[n],zorder=10)
+        ax.plot([r[0,0]],[r[0,1]],[r[0,2]],zorder=10)
         n+=1
         
     # plot central body
@@ -29,7 +33,7 @@ def plot_n_orbits(rs,labels,cb=pd.earth,show_plot=False,save_plot=False,title='m
     _x=cb['radius']*np.cos(_u)*np.sin(_v)
     _y=cb['radius']*np.sin(_u)*np.sin(_v)
     _z=cb['radius']*np.cos(_v)
-    ax.plot_surface(_x,_y,_z,cmap='Blues')
+    ax.plot_surface(_x,_y,_z,cmap='Blues',zorder=1)
     
     # plot the x,y,z vectors
     l = cb['radius']*2.0
@@ -83,6 +87,52 @@ def coes2rv(coes,deg=False,mu=pd.earth['mu']):
     
     return r,v,date
 
+def rv2coes(r,v,mu=pd.earth['mu'],degrees=False,print_results=True):
+    # norm of position vector
+    r_norm=norm(r)
+    
+    # specific angular momentum
+    h=np.cross(r,v)
+    h_norm=norm(h)
+    
+    # inclination
+    i=m.acos(h[2]/h_norm)
+    
+    # eccentricity vector
+    e=((norm(v)**2-mu/r_norm)*r-np.dot(r,v)*v)/mu
+    
+    # eccentricity scalar
+    e_norm=norm(e)
+    
+    # node line
+    N=np.cross([0,0,1],h)
+    N_norm=norm(N)
+    
+    # RAAN
+    raan=m.acos(N[0]/N_norm)
+    if N[1]<0: raan=2*np.pi-raan # quadrant check
+    
+    # argument of perigee
+    aop=m.acos(np.dot(N,e)/N_norm/e_norm)
+    if e[2]<0: aop=2*np.pi-aop # quadrant check
+    
+    # true anomaly
+    ta=m.acos(np.dot(N,e)/N_norm/e_norm)
+    
+    # semi major axis
+    a=r_norm*(1+e_norm*m.cos(ta))/(1-e_norm**2)
+    
+    if print_results:
+        print('a',a)
+        print('e',e_norm)
+        print('i',i*r2d)
+        print('RAAN',raan*r2d)
+        print('AOP',aop*r2d)
+        print('TA',ta*r2d)
+        
+    if degrees: return [a,e_norm,i*r2d,ta*r2d,aop*r2d,raan*r2d]
+    else: return [a,e_norm,i,ta,aop,raan]
+    
 def eci2perif(raan,aop,i):
     row0=[-m.sin(raan)*m.cos(i)*m.sin(aop)+m.cos(raan)*m.cos(aop),m.cos(raan)*m.cos(i)*m.sin(aop)+m.sin(raan)*m.cos(aop),m.sin(i)*m.sin(aop)]
     row1=[-m.sin(raan)*m.cos(i)*m.cos(aop)-m.cos(raan)*m.sin(aop),m.cos(raan)*m.cos(i)*m.cos(aop)-m.sin(raan)*m.sin(aop),m.sin(i)*m.cos(aop)]

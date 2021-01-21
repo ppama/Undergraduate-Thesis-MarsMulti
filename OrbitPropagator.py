@@ -9,7 +9,7 @@ import tools as t
 
 def null_perts(): #dictionary of perturbations
     return {
-            'J2':False, #no need
+            'oblateness':False, #no need
             'aero':False,
             'moon_grav':False, #no need
             'solar_grav':False, #nonneed
@@ -74,16 +74,14 @@ class OrbitPropagator:
         a=-r*self.cb['mu']/norm_r**3
         
         # J2 perturbation oblateness
-        if self.perts['J2']:
+        if self.perts['oblateness']:
             z2=r[2]**2
             r2=norm_r**2
             tx=r[0]/norm_r*(5*z2/r2-1)
             ty=r[1]/norm_r*(5*z2/r2-1)
-            tz=r[2]/norm_r*(5*z2/r2-1)
+            tz=r[2]/norm_r*(5*z2/r2-3)
             
-            a_j2=1.5*self.cb['J2']*self.cb['mu']*self.cb['radius']**2/norm_r**4*np.array([tx,ty,tz])
-            
-            a+=a_j2
+            a+=1.5*self.cb['J2']*self.cb['mu']*self.cb['radius']**2/norm_r**4*np.array([tx,ty,tz])
         
         # aerodynamic drag
         if self.perts['aero']:
@@ -100,6 +98,14 @@ class OrbitPropagator:
         
         return [vx,vy,vz,a[0],a[1],a[2]]
     
+    def calculate_coes(self,degrees=True):
+        print('Calculating COEs...')
+        
+        self.coes=np.zeros((self.n_steps,6))
+        
+        for n in range(self.n_steps):
+            self.coes[n,:]=t.rv2coes(self.rs[n,:],self.vs[n,:],mu=self.cb['mu'],degrees=degrees)
+        
     # plot altitude over time
     def plot_alts(self,show_plot=False,save_plot=False,hours=False,days=False,title='Radial Distance vs. Time'):
         if hours:
@@ -113,7 +119,7 @@ class OrbitPropagator:
             x_unit='Seconds'
             
         #plt.figure(figsize=figsize)
-        plt.plot(ts,self.alts,'w')
+        #plt.plot(ts,self.alts,'w')
         plt.grid(True)
         plt.xlabel('Time (%s)' % x_unit)
         plt.ylabel('Altitude (km)')
