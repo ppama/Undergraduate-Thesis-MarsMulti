@@ -9,16 +9,16 @@ import tools as t
 
 def null_perts(): #dictionary of perturbations
     return {
-            'J2':False,
+            'J2':False, #no need
             'aero':False,
-            'moon_grav':False,
-            'solar_grav':False,
+            'moon_grav':False, #no need
+            'solar_grav':False, #nonneed
             
     }
 class OrbitPropagator:
     def __init__(self,state0,tspan,dt,coes=False,deg=True,mass0=0,cb=pd.earth,perts=null_perts()):
         if coes:
-            self.r0,self.v0=t.coes2rv(state0,deg=True,mu=cb['mu'])
+            self.r0,self.v0,_=t.coes2rv(state0,deg=deg,mu=cb['mu'])
         else:
             self.r0=state0[:3]
             self.v0=state0[3:]
@@ -46,6 +46,8 @@ class OrbitPropagator:
         
         # define perturbations dictionary
         self.perts=perts
+
+        self.propagate_orbit()
         
     def propagate_orbit(self):
         

@@ -12,12 +12,15 @@ cb=pd.earth
 
 if __name__ == '__main__':
     perts=null_perts()
-    perts['J2']=True
+    perts['J2']=False
     #,e,i,ta,aop,raan=coes
     
     # ISS
-    c0=[cb['radius']+414.0,0.0000291,51.6425,0.0,285.3988,22.3967]
+    #c0=[cb['radius']+414.0,0.0000291,51.6425,0.0,285.3988,22.3967,21020.92786462]
     
-    op=OP(c0,tspan,dt,coes=True,perts=perts)
-    op.propagate_orbit()
-    op.plot_3d(show_plot=True)
+    op1=OP(t.tle2coes('iss.txt'),tspan,dt,coes=True,perts=perts)
+    op2=OP(t.tle2coes('aerocube12b.txt'),tspan,dt,coes=True,perts=perts)
+    #op=OP(c0,tspan,dt,coes=True,perts=perts)
+
+    #op.plot_3d(show_plot=True)
+    t.plot_n_orbits([op1.rs,op2.rs],labels=['ISS','aerocube 12b'],show_plot=True)
