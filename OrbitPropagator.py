@@ -13,10 +13,11 @@ def null_perts(): #dictionary of perturbations
             'aero':False,
             'moon_grav':False, #no need
             'solar_grav':False, #no need
-            
+            'thrust':0,
+            'thrust_direction':0
     }
 class OrbitPropagator:
-    def __init__(self,state0,tspan,dt,coes=False,deg=True,mass0=0,cb=pd.earth,perts=null_perts()):
+    def __init__(self,state0,tspan,dt,coes=False,deg=True,mass0=0,cb=pd.earth,perts=null_perts(),propagator='lsoda'):
         if coes:
             self.r0,self.v0=t_.coes2rv(state0,deg=deg,mu=cb['mu'])
         else:
@@ -27,22 +28,24 @@ class OrbitPropagator:
         self.tspan=tspan
         self.dt=dt
         self.cb=cb
-        self.mass=mass0
+        self.mass0=mass0
         
         #total number of steps
-        self.n_steps=int(np.ceil(self.tspan/self.dt))
+        self.n_steps=int(np.ceil(self.tspan/self.dt))+1
         
         #initialize variables
-        self.ys=np.zeros((self.n_steps,6))#6 states, xyz, for position and v
+        self.y=np.zeros((self.n_steps,7))#7 states, xyz, for position and v
         self.ts=np.zeros((self.n_steps,1))
-        self.ts[0]=0
-        self.ys[0,:]=self.y0
+        self.propagator=propagator
         self.step=1
+        
+        #initial conditions
+        self.y[0,:]=self.r0.tolist()+self.v0.tolist()+[self.mass0]
         
         #initiate solver
         self.solver=ode(self.diffy_q)
-        self.solver.set_integrator('lsoda')
-        self.solver.set_initial_value(self.y0,0)
+        self.solver.set_integrator(self.propagator)
+        self.solver.set_initial_value(self.y[0,:],0)
         
         # define perturbations dictionary
         self.perts=perts
@@ -59,22 +62,21 @@ class OrbitPropagator:
             
             #extract values from solver instance
             self.ts[self.step]=self.solver.t
-            self.ys[self.step]=self.solver.y
+            self.y[self.step]=self.solver.y
             self.step+=1
         
         # extract arrays at the step where the propagation stopped
         self.ts=self.ts[:self.step]
-        self.rs=self.ys[:self.step,:3]
-        self.vs=self.ys[:self.step,3:]
+        self.rs=self.y[:self.step,:3]
+        self.vs=self.y[:self.step,3:6]
+        self.masses=self.y[:self.step,-1]
         self.alts=(np.linalg.norm(self.rs,axis=1)-self.cb['radius']).reshape((self.step,1))
-        
         
     def diffy_q(self,t,y):
         # unpack state
-        rx,ry,rz,vx,vy,vz=y
+        rx,ry,rz,vx,vy,vz,mass0=y
         r=np.array([rx,ry,rz])
         v=np.array([vx,vy,vz])
-        
         # norm of the radius vector
         norm_r=np.linalg.norm(r)
         
@@ -88,7 +90,6 @@ class OrbitPropagator:
             tx=r[0]/norm_r*(5*z2/r2-1)
             ty=r[1]/norm_r*(5*z2/r2-1)
             tz=r[2]/norm_r*(5*z2/r2-3)
-            
             a+=1.5*self.cb['J2']*self.cb['mu']*self.cb['radius']**2/norm_r**4*np.array([tx,ty,tz])
         
         # aerodynamic drag
@@ -100,11 +101,18 @@ class OrbitPropagator:
             # calculate motion of spacecraft w/ respect to a rotating atmosphere
             v_rel=v-np.cross(self.cb['atm_rot_vector'],r)
             
-            drag=-v_rel*0.5*rho*t_.norm(v_rel)*self.perts['Cd']*self.perts['A']/self.mass
+            drag=-v_rel*0.5*rho*t_.norm(v_rel)*self.perts['Cd']*self.perts['A']/self.mass0
             
             a+=drag
         
-        return [vx,vy,vz,a[0],a[1],a[2]]
+        if self.perts['thrust']:
+            # thrust vector
+            a+=self.perts['thrust_direction']*t_.normed(v)*self.perts['thrust']/mass0/1000.0
+            
+            # derivative of total mass
+            dmdt=-self.perts['thrust']/self.perts['isp']/9.81 #decreasing mass as fuel is spent
+            
+        return [vx,vy,vz,a[0],a[1],a[2],dmdt]
     
     def calculate_coes(self,degrees=True):
         print('Calculating COEs...')

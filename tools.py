@@ -16,6 +16,11 @@ r2d=180.0/np.pi
 def norm(v):
     return np.linalg.norm(v)
 
+def normed(v):
+    return np.array(v)/norm(v)
+def sqrt(a):
+    return np.sqrt(a)
+
 def plot_n_orbits(rs,labels,cb=pd.earth,show_plot=False,save_plot=False,title='multiple orbits'):
     # 3D plot
     fig = plt.figure(figsize=(16,8))
