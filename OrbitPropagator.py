@@ -5,20 +5,20 @@ from scipy.integrate import ode
 from mpl_toolkits.mplot3d import Axes3D
 
 import planetary_data as pd
-import tools as t
+import tools as t_
 
 def null_perts(): #dictionary of perturbations
     return {
             'oblateness':False, #no need
             'aero':False,
             'moon_grav':False, #no need
-            'solar_grav':False, #nonneed
+            'solar_grav':False, #no need
             
     }
 class OrbitPropagator:
     def __init__(self,state0,tspan,dt,coes=False,deg=True,mass0=0,cb=pd.earth,perts=null_perts()):
         if coes:
-            self.r0,self.v0,_=t.coes2rv(state0,deg=deg,mu=cb['mu'])
+            self.r0,self.v0=t_.coes2rv(state0,deg=deg,mu=cb['mu'])
         else:
             self.r0=state0[:3]
             self.v0=state0[3:]
@@ -50,16 +50,24 @@ class OrbitPropagator:
         self.propagate_orbit()
         
     def propagate_orbit(self):
+        print('Propagating orbit...')
         
-        #propagate orbit
+        #propagate orbit, check for max time and stop conditions at each step
         while self.solver.successful() and self.step<self.n_steps:
+            #integrate step
             self.solver.integrate(self.solver.t+self.dt)
+            
+            #extract values from solver instance
             self.ts[self.step]=self.solver.t
             self.ys[self.step]=self.solver.y
             self.step+=1
         
-        self.rs=self.ys[:,:3]
-        self.vs=self.ys[:,3:]
+        # extract arrays at the step where the propagation stopped
+        self.ts=self.ts[:self.step]
+        self.rs=self.ys[:self.step,:3]
+        self.vs=self.ys[:self.step,3:]
+        self.alts=(np.linalg.norm(self.rs,axis=1)-self.cb['radius']).reshape((self.step,1))
+        
         
     def diffy_q(self,t,y):
         # unpack state
@@ -87,12 +95,12 @@ class OrbitPropagator:
         if self.perts['aero']:
             # calculate altitude and air density
             z=norm_r-self.cb['radius']
-            rho=t.calc_atmospheric_density(z)
+            rho=t_.calc_atmospheric_density(z)
             
             # calculate motion of spacecraft w/ respect to a rotating atmosphere
             v_rel=v-np.cross(self.cb['atm_rot_vector'],r)
             
-            drag=-v_rel*0.5*rho*t.norm(v_rel)*self.perts['Cd']*self.perts['A']/self.mass
+            drag=-v_rel*0.5*rho*t_.norm(v_rel)*self.perts['Cd']*self.perts['A']/self.mass
             
             a+=drag
         
@@ -104,10 +112,79 @@ class OrbitPropagator:
         self.coes=np.zeros((self.n_steps,6))
         
         for n in range(self.n_steps):
-            self.coes[n,:]=t.rv2coes(self.rs[n,:],self.vs[n,:],mu=self.cb['mu'],degrees=degrees)
+            self.coes[n,:]=t_.rv2coes(self.rs[n,:],self.vs[n,:],mu=self.cb['mu'],degrees=degrees)
         
-    # plot altitude over time
-    def plot_alts(self,show_plot=False,save_plot=False,hours=False,days=False,title='Radial Distance vs. Time'):
+    def plot_coes(self,hours=False,days=False,show_plot=False,save_plot=False,title='COEs',figsize=(16,8),dpi=500):
+        print('Plotting COES...')
+            
+        #create figure and axes instances
+        fig,axs=plt.subplots(nrows=2,ncols=3,figsize=figsize)
+        
+        # figure title
+        fig.suptitle(title,fontsize=20)
+        
+        # x axis
+        if hours:
+            ts=self.ts/3600.0
+            xlabel='Time elapsed (hours)'
+        elif days:
+            ts=self.ts/(3600.0*24.0)
+            xlabel='Time elapsed (days)'
+        else:
+            ts=self.ts
+            xlabel='Time elapsed (seconds)'
+            
+        # plot true anomaly
+        axs[0,0].plot(self.ts,self.coes[:,3])
+        axs[0,0].set_title('True Anomaly vs. Time')
+        axs[0,0].grid(True)
+        axs[0,0].set_ylabel('Angle (degrees)')
+        axs[0,0].set_xlabel(xlabel)
+        
+        # plot semi major axis
+        axs[1,0].plot(self.ts,self.coes[:,0])
+        axs[1,0].set_title('Semi-Major Axis vs. Time')
+        axs[1,0].grid(True)
+        axs[1,0].set_ylabel('Semi-Major Axis (km)')
+        axs[1,0].set_xlabel(xlabel)
+        
+        # plot eccentricity
+        axs[0,1].plot(self.ts,self.coes[:,1])
+        axs[0,1].set_title('Eccentricity vs. Time')
+        axs[0,1].grid(True)
+        
+        # plot argument of periapse
+        axs[0,2].plot(self.ts,self.coes[:,4])
+        axs[0,2].set_title('Argument of Periapse vs. Time')
+        axs[0,2].grid(True)
+        
+        # plot inclination
+        axs[1,1].plot(self.ts,self.coes[:,2])
+        axs[1,1].set_title('Inclination vs. Time')
+        axs[1,1].grid(True)
+        axs[1,1].set_ylabel('Angle (degrees)')
+        axs[1,1].set_xlabel(xlabel)
+        
+        # plot RAAN
+        axs[1,2].plot(self.ts,self.coes[:,5])
+        axs[1,2].set_title('RAAN vs. Time')
+        axs[1,2].grid(True)
+        axs[1,2].set_xlabel(xlabel)
+        
+        if show_plot:
+            plt.show()
+        if save_plot:
+            plt.savefig(title+'.png',dpi=300)
+            
+    def calculate_apoapse_periapse(self):
+        #define empty arrays
+        self.apoapses=self.coes[:,0]*(1+self.coes[:,1]) #TA = 0, semimajor axis * 1+eccentricity
+        self.periapses=self.coes[:,0]*(1-self.coes[:,1]) #TA = 180
+        
+    def plot_apoapse_periapse(self,hours=False,days=False,show_plot=False,title='Apoapse and Periapse',dpi=500):
+        #create figure
+        plt.figure(figsize=(20,10))
+        
         if hours:
             ts=self.ts/3600.0
             x_unit='Hours'
@@ -118,8 +195,27 @@ class OrbitPropagator:
             ts=self.ts
             x_unit='Seconds'
             
-        #plt.figure(figsize=figsize)
-        #plt.plot(ts,self.alts,'w')
+        #plot each
+        plt.plot(ts,self.apoapses,'b',label='Apoapse')
+        plt.plot(ts,self.periapses,'b',label='Periapse')
+        
+        #labels
+        plt.xlabel('Time (%s)' % x_unit)
+        plt.ylabel('Altitude (km)')
+    # plot altitude over time
+    def plot_alts(self,show_plot=False,save_plot=False,hours=False,days=False,title='Radial Distance vs. Time',figsize=(16,8),dpi=500):
+        if hours:
+            ts=self.ts/3600.0
+            x_unit='Hours'
+        elif days:
+            ts=self.ts/(3600.0*24.0)
+            x_unit='Days'
+        else:
+            ts=self.ts
+            x_unit='Seconds'
+            
+        plt.figure(figsize=figsize)
+        plt.plot(ts,self.alts,'b')
         plt.grid(True)
         plt.xlabel('Time (%s)' % x_unit)
         plt.ylabel('Altitude (km)')
@@ -129,7 +225,7 @@ class OrbitPropagator:
         if save_plot:
             plt.savefig(title+'.png',dpi=300)
             
-    def plot_3d(self,show_plot=False,save_plot=False,title='title'):
+    def plot_3d(self,show_plot=False,save_plot=False,title='3D orbit'):
         # 3D plot
         fig = plt.figure(figsize=(16,8))
         ax = fig.add_subplot(111,projection='3d')
