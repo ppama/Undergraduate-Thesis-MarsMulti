@@ -178,10 +178,11 @@ class OrbitPropagator:
             
     def calculate_apoapse_periapse(self):
         #define empty arrays
+        print('calculating Apoapse and Periapse...')
         self.apoapses=self.coes[:,0]*(1+self.coes[:,1]) #TA = 0, semimajor axis * 1+eccentricity
         self.periapses=self.coes[:,0]*(1-self.coes[:,1]) #TA = 180
         
-    def plot_apoapse_periapse(self,hours=False,days=False,show_plot=False,title='Apoapse and Periapse',dpi=500):
+    def plot_apoapse_periapse(self,hours=False,days=False,show_plot=False,save_plot=False,title='Apoapse and Periapse',dpi=500):
         #create figure
         plt.figure(figsize=(20,10))
         
@@ -197,11 +198,22 @@ class OrbitPropagator:
             
         #plot each
         plt.plot(ts,self.apoapses,'b',label='Apoapse')
-        plt.plot(ts,self.periapses,'b',label='Periapse')
+        plt.plot(ts,self.periapses,'r',label='Periapse')
         
         #labels
         plt.xlabel('Time (%s)' % x_unit)
         plt.ylabel('Altitude (km)')
+        
+        #other param
+        plt.grid(True)
+        plt.title(title)
+        plt.legend()
+        
+        if show_plot:
+            plt.show()
+        if save_plot:
+            plt.savefig(title+'.png',dpi=300)
+        
     # plot altitude over time
     def plot_alts(self,show_plot=False,save_plot=False,hours=False,days=False,title='Radial Distance vs. Time',figsize=(16,8),dpi=500):
         if hours:
