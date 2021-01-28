@@ -17,7 +17,7 @@ def null_perts(): #dictionary of perturbations
             'thrust_direction':0
     }
 class OrbitPropagator:
-    def __init__(self,state0,tspan,dt,coes=False,deg=True,mass0=0,cb=pd.earth,perts=null_perts(),propagator='lsoda'):
+    def __init__(self,state0,tspan,dt,coes=False,deg=True,mass0=0,cb=pd.earth,perts=null_perts(),propagator='lsoda',sc={}):
         if coes:
             self.r0,self.v0=t_.coes2rv(state0,deg=deg,mu=cb['mu'])
         else:
@@ -34,13 +34,15 @@ class OrbitPropagator:
         self.n_steps=int(np.ceil(self.tspan/self.dt))+1
         
         #initialize variables
-        self.y=np.zeros((self.n_steps,7))#7 states, xyz, for position and v
-        self.ts=np.zeros((self.n_steps,1))
+        self.y=np.zeros((self.n_steps+1,7))#7 states, xyz, for position and v
+        self.ts=np.zeros((self.n_steps+1,1))
+        self.alts=np.zeros((self.n_steps+1))
         self.propagator=propagator
-        self.step=1
+        self.step=0
         
         #initial conditions
         self.y[0,:]=self.r0.tolist()+self.v0.tolist()+[self.mass0]
+        self.alts[0]=t_.norm(self.r0)-self.cb['radius']
         
         #initiate solver
         self.solver=ode(self.diffy_q)
@@ -49,21 +51,74 @@ class OrbitPropagator:
         
         # define perturbations dictionary
         self.perts=perts
-
+        
+        # store stop conditions dictionary
+        self.stop_conditions_dict=sc
+        
+        # define dictionary to map internal methods
+        self.stop_conditions_map={'max_alt':self.check_max_alt, 'min_alt':self.check_min_alt}
+        
+        # create stop condition function
+        self.stop_condition_functions=[self.check_deorbit] # set deorbit at surface
+        
+        # fill stop conditions
+        for key in self.stop_conditions_dict.keys():
+            self.stop_condition_functions.append(self.stop_conditions_map[key])
+            
+        # propagate orbit
         self.propagate_orbit()
         
+        
+    # check if minimum altitude exceeded
+    def check_min_alt(self):
+        if self.alts[self.step]<self.stop_conditions_dict['min_alt']:
+            print('Spacecraft reached target altitude after %.1f seconds' % self.ts[self.step])
+            return False
+        return True
+    
+    # checks if spacecraft deorbited
+    def check_deorbit(self):
+        if self.alts[self.step]<self.cb['deorbit_altitude']:
+            print('Spacecraft deorbited after %.1f seconds' % self.ts[self.step])
+            return False
+        return True
+    
+    # checks if maximum altitude exceeded
+    def check_max_alt(self):
+        if self.alts[self.step]>self.stop_conditions_dict['max_alt']:
+            print('Spacecraft reached maximum altitude after %.1f seconds' % self.ts[self.step])
+            return False
+        return True
+    
+    # function called at each time step to check stop conditions
+    def check_stop_conditions(self):
+        # for each stop condition
+        for sc in self.stop_condition_functions:
+            
+            # if returns False
+            if not sc():
+                
+                #stop condition reached, return False
+                return False
+            
+        # if no stop condition reached, return True
+        return True
+    
     def propagate_orbit(self):
         print('Propagating orbit...')
         
         #propagate orbit, check for max time and stop conditions at each step
-        while self.solver.successful() and self.step<self.n_steps:
+        while self.solver.successful() and self.step<self.n_steps and self.check_stop_conditions():
             #integrate step
             self.solver.integrate(self.solver.t+self.dt)
+            self.step+=1
             
             #extract values from solver instance
             self.ts[self.step]=self.solver.t
             self.y[self.step]=self.solver.y
-            self.step+=1
+            
+            # calcualte altitude at this time step
+            self.alts[self.step]=t_.norm(self.solver.y[:3]-self.cb['radius'])
         
         # extract arrays at the step where the propagation stopped
         self.ts=self.ts[:self.step]
@@ -71,6 +126,7 @@ class OrbitPropagator:
         self.vs=self.y[:self.step,3:6]
         self.masses=self.y[:self.step,-1]
         self.alts=(np.linalg.norm(self.rs,axis=1)-self.cb['radius']).reshape((self.step,1))
+        #self.alts=self.alts[:self.step]
         
     def diffy_q(self,t,y):
         # unpack state
@@ -252,7 +308,10 @@ class OrbitPropagator:
         
         # plot trajectory and starting point 
         ax.plot(self.rs[:,0],self.rs[:,1],self.rs[:,2],'k',label='Trajectory',zorder=10)
-        ax.plot([self.rs[0,0]],[self.rs[0,1]],[self.rs[0,2]],'wo',label='Initial Position',zorder=10)
+        ax.plot([self.rs[0,0]],[self.rs[0,1]],[self.rs[0,2]],'g',label='Initial Position',zorder=10)
+        
+        # plot ending point
+        ax.plot([self.rs[len(self.rs)-1,0]],[self.rs[len(self.rs)-1,1]],[self.rs[len(self.rs)-1,2]],'go',label='Ending Position',zorder=10)
         
         # plot central body
         _u,_v=np.mgrid[0:2*np.pi:20j,0:np.pi:10j]
@@ -277,7 +336,7 @@ class OrbitPropagator:
         ax.set_xlabel('X (km)'); ax.set_ylabel('Y (km)'); ax.set_zlabel('Z (km)')
         #ax.set_aspect('equal')
         ax.set_title(title)
-        plt.legend(['Trajectory', 'Starting Position'])
+        plt.legend(['Trajectory', 'Starting Position','Ending Position'])
         
         if show_plot:
             plt.show()

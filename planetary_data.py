@@ -21,13 +21,14 @@ earth={
     'J2':1.082635854e-3,
     'zs':atm[:,0], # km
     'rhos':atm[:,1]*10**8, # kg / km^3
-    'atm_rot_vector':np.array([0.0,0.0,72.9211e-6]) # rad/s
+    'atm_rot_vector':np.array([0.0,0.0,72.9211e-6]), # rad/s
+    'deorbit_altitude':100.0 # km
 }
 
 mars={
     'name':'Mars',
     'mass':6.39e23,
     'mu':6.39e23*G,
-    'radius':3389.5
+    'radius':3389.5 # km
 }
 
