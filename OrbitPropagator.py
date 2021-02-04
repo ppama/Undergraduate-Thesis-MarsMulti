@@ -13,11 +13,10 @@ def null_perts(): #dictionary of perturbations
             'aero':False,
             'moon_grav':False, #no need
             'solar_grav':False, #no need
-            'thrust':0,
-            'thrust_direction':0
+            
     }
 class OrbitPropagator:
-    def __init__(self,state0,tspan,dt,coes=False,deg=True,mass0=0,cb=pd.earth,perts=null_perts(),propagator='lsoda',sc={}):
+    def __init__(self,state0,tspan,dt,coes=False,deg=True,mass0=0,cb=pd.earth,perts=null_perts()):
         if coes:
             self.r0,self.v0=t_.coes2rv(state0,deg=deg,mu=cb['mu'])
         else:
@@ -28,111 +27,54 @@ class OrbitPropagator:
         self.tspan=tspan
         self.dt=dt
         self.cb=cb
-        self.mass0=mass0
+        self.mass=mass0
         
         #total number of steps
-        self.n_steps=int(np.ceil(self.tspan/self.dt))+1
+        self.n_steps=int(np.ceil(self.tspan/self.dt))
         
         #initialize variables
-        self.y=np.zeros((self.n_steps+1,7))#7 states, xyz, for position and v
-        self.ts=np.zeros((self.n_steps+1,1))
-        self.alts=np.zeros((self.n_steps+1))
-        self.propagator=propagator
-        self.step=0
-        
-        #initial conditions
-        self.y[0,:]=self.r0.tolist()+self.v0.tolist()+[self.mass0]
-        self.alts[0]=t_.norm(self.r0)-self.cb['radius']
+        self.ys=np.zeros((self.n_steps,6))#6 states, xyz, for position and v
+        self.ts=np.zeros((self.n_steps,1))
+        self.ts[0]=0
+        self.ys[0,:]=self.y0
+        self.step=1
         
         #initiate solver
         self.solver=ode(self.diffy_q)
-        self.solver.set_integrator(self.propagator)
-        self.solver.set_initial_value(self.y[0,:],0)
+        self.solver.set_integrator('lsoda')
+        self.solver.set_initial_value(self.y0,0)
         
         # define perturbations dictionary
         self.perts=perts
-        
-        # store stop conditions dictionary
-        self.stop_conditions_dict=sc
-        
-        # define dictionary to map internal methods
-        self.stop_conditions_map={'max_alt':self.check_max_alt, 'min_alt':self.check_min_alt}
-        
-        # create stop condition function
-        self.stop_condition_functions=[self.check_deorbit] # set deorbit at surface
-        
-        # fill stop conditions
-        for key in self.stop_conditions_dict.keys():
-            self.stop_condition_functions.append(self.stop_conditions_map[key])
-            
-        # propagate orbit
+
         self.propagate_orbit()
         
-        
-    # check if minimum altitude exceeded
-    def check_min_alt(self):
-        if self.alts[self.step]<self.stop_conditions_dict['min_alt']:
-            print('Spacecraft reached target altitude after %.1f seconds' % self.ts[self.step])
-            return False
-        return True
-    
-    # checks if spacecraft deorbited
-    def check_deorbit(self):
-        if self.alts[self.step]<self.cb['deorbit_altitude']:
-            print('Spacecraft deorbited after %.1f seconds' % self.ts[self.step])
-            return False
-        return True
-    
-    # checks if maximum altitude exceeded
-    def check_max_alt(self):
-        if self.alts[self.step]>self.stop_conditions_dict['max_alt']:
-            print('Spacecraft reached maximum altitude after %.1f seconds' % self.ts[self.step])
-            return False
-        return True
-    
-    # function called at each time step to check stop conditions
-    def check_stop_conditions(self):
-        # for each stop condition
-        for sc in self.stop_condition_functions:
-            
-            # if returns False
-            if not sc():
-                
-                #stop condition reached, return False
-                return False
-            
-        # if no stop condition reached, return True
-        return True
-    
     def propagate_orbit(self):
         print('Propagating orbit...')
         
         #propagate orbit, check for max time and stop conditions at each step
-        while self.solver.successful() and self.step<self.n_steps and self.check_stop_conditions():
+        while self.solver.successful() and self.step<self.n_steps:
             #integrate step
             self.solver.integrate(self.solver.t+self.dt)
-            self.step+=1
             
             #extract values from solver instance
             self.ts[self.step]=self.solver.t
-            self.y[self.step]=self.solver.y
-            
-            # calcualte altitude at this time step
-            self.alts[self.step]=t_.norm(self.solver.y[:3]-self.cb['radius'])
+            self.ys[self.step]=self.solver.y
+            self.step+=1
         
         # extract arrays at the step where the propagation stopped
         self.ts=self.ts[:self.step]
-        self.rs=self.y[:self.step,:3]
-        self.vs=self.y[:self.step,3:6]
-        self.masses=self.y[:self.step,-1]
+        self.rs=self.ys[:self.step,:3]
+        self.vs=self.ys[:self.step,3:]
         self.alts=(np.linalg.norm(self.rs,axis=1)-self.cb['radius']).reshape((self.step,1))
-        #self.alts=self.alts[:self.step]
+        
         
     def diffy_q(self,t,y):
         # unpack state
-        rx,ry,rz,vx,vy,vz,mass0=y
+        rx,ry,rz,vx,vy,vz=y
         r=np.array([rx,ry,rz])
         v=np.array([vx,vy,vz])
+        
         # norm of the radius vector
         norm_r=np.linalg.norm(r)
         
@@ -146,6 +88,7 @@ class OrbitPropagator:
             tx=r[0]/norm_r*(5*z2/r2-1)
             ty=r[1]/norm_r*(5*z2/r2-1)
             tz=r[2]/norm_r*(5*z2/r2-3)
+            
             a+=1.5*self.cb['J2']*self.cb['mu']*self.cb['radius']**2/norm_r**4*np.array([tx,ty,tz])
         
         # aerodynamic drag
@@ -157,18 +100,11 @@ class OrbitPropagator:
             # calculate motion of spacecraft w/ respect to a rotating atmosphere
             v_rel=v-np.cross(self.cb['atm_rot_vector'],r)
             
-            drag=-v_rel*0.5*rho*t_.norm(v_rel)*self.perts['Cd']*self.perts['A']/self.mass0
+            drag=-v_rel*0.5*rho*t_.norm(v_rel)*self.perts['Cd']*self.perts['A']/self.mass
             
             a+=drag
         
-        if self.perts['thrust']:
-            # thrust vector
-            a+=self.perts['thrust_direction']*t_.normed(v)*self.perts['thrust']/mass0/1000.0
-            
-            # derivative of total mass
-            dmdt=-self.perts['thrust']/self.perts['isp']/9.81 #decreasing mass as fuel is spent
-            
-        return [vx,vy,vz,a[0],a[1],a[2],dmdt]
+        return [vx,vy,vz,a[0],a[1],a[2]]
     
     def calculate_coes(self,degrees=True):
         print('Calculating COEs...')
@@ -242,11 +178,10 @@ class OrbitPropagator:
             
     def calculate_apoapse_periapse(self):
         #define empty arrays
-        print('calculating Apoapse and Periapse...')
         self.apoapses=self.coes[:,0]*(1+self.coes[:,1]) #TA = 0, semimajor axis * 1+eccentricity
         self.periapses=self.coes[:,0]*(1-self.coes[:,1]) #TA = 180
         
-    def plot_apoapse_periapse(self,hours=False,days=False,show_plot=False,save_plot=False,title='Apoapse and Periapse',dpi=500):
+    def plot_apoapse_periapse(self,hours=False,days=False,show_plot=False,title='Apoapse and Periapse',dpi=500):
         #create figure
         plt.figure(figsize=(20,10))
         
@@ -262,22 +197,11 @@ class OrbitPropagator:
             
         #plot each
         plt.plot(ts,self.apoapses,'b',label='Apoapse')
-        plt.plot(ts,self.periapses,'r',label='Periapse')
+        plt.plot(ts,self.periapses,'b',label='Periapse')
         
         #labels
         plt.xlabel('Time (%s)' % x_unit)
         plt.ylabel('Altitude (km)')
-        
-        #other param
-        plt.grid(True)
-        plt.title(title)
-        plt.legend()
-        
-        if show_plot:
-            plt.show()
-        if save_plot:
-            plt.savefig(title+'.png',dpi=300)
-        
     # plot altitude over time
     def plot_alts(self,show_plot=False,save_plot=False,hours=False,days=False,title='Radial Distance vs. Time',figsize=(16,8),dpi=500):
         if hours:
@@ -308,10 +232,7 @@ class OrbitPropagator:
         
         # plot trajectory and starting point 
         ax.plot(self.rs[:,0],self.rs[:,1],self.rs[:,2],'k',label='Trajectory',zorder=10)
-        ax.plot([self.rs[0,0]],[self.rs[0,1]],[self.rs[0,2]],'g',label='Initial Position',zorder=10)
-        
-        # plot ending point
-        ax.plot([self.rs[len(self.rs)-1,0]],[self.rs[len(self.rs)-1,1]],[self.rs[len(self.rs)-1,2]],'go',label='Ending Position',zorder=10)
+        ax.plot([self.rs[0,0]],[self.rs[0,1]],[self.rs[0,2]],'wo',label='Initial Position',zorder=10)
         
         # plot central body
         _u,_v=np.mgrid[0:2*np.pi:20j,0:np.pi:10j]
@@ -336,7 +257,7 @@ class OrbitPropagator:
         ax.set_xlabel('X (km)'); ax.set_ylabel('Y (km)'); ax.set_zlabel('Z (km)')
         #ax.set_aspect('equal')
         ax.set_title(title)
-        plt.legend(['Trajectory', 'Starting Position','Ending Position'])
+        plt.legend(['Trajectory', 'Starting Position'])
         
         if show_plot:
             plt.show()
