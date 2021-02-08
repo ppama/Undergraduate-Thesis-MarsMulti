@@ -232,7 +232,10 @@ class OrbitPropagator:
         
         # plot trajectory and starting point 
         ax.plot(self.rs[:,0],self.rs[:,1],self.rs[:,2],'k',label='Trajectory',zorder=10)
-        ax.plot([self.rs[0,0]],[self.rs[0,1]],[self.rs[0,2]],'wo',label='Initial Position',zorder=10)
+        ax.plot([self.rs[0,0]],[self.rs[0,1]],[self.rs[0,2]],'g',label='Initial Position',zorder=10)
+        
+        # plot ending point
+        ax.plot([self.rs[len(self.rs)-1,0]],[self.rs[len(self.rs)-1,1]],[self.rs[len(self.rs)-1,2]],'go',label='Ending Position',zorder=10)
         
         # plot central body
         _u,_v=np.mgrid[0:2*np.pi:20j,0:np.pi:10j]
@@ -257,7 +260,7 @@ class OrbitPropagator:
         ax.set_xlabel('X (km)'); ax.set_ylabel('Y (km)'); ax.set_zlabel('Z (km)')
         #ax.set_aspect('equal')
         ax.set_title(title)
-        plt.legend(['Trajectory', 'Starting Position'])
+        plt.legend(['Trajectory', 'Starting Position','Ending Position'])
         
         if show_plot:
             plt.show()

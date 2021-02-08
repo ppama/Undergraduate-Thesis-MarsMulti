@@ -1,0 +1,34 @@
+{
+    "sun":{
+        "name":"Sun",
+        "mass":1.989e30,
+        "mu":1.32712e11,
+        "radius":695700.0
+    },
+    
+    "earth": {
+        "name":"Earth",
+        "mass":5.972e24,
+        "mu":3.9858e5,
+        "radius":6378.0,
+        "J2":1.082635854e-3,
+        "zs":[63.096,251.189,1000.0], 
+        "rhos":[2.059e-4,5.909e-11,3.561e-15],
+        "atm_rot_vector":[0.0,0.0,72.9211e-6],
+        "deorbit_altitude":10.0  
+    },
+    
+    "mars":{
+        "name":"Mars",
+        "mass":6.4171e23,
+        "mu":4.2828e4,
+        "radius":3389.5, 
+        "data":"./inputs/mars.dat", 
+        "k":1.3, 
+        "Rgas":192,
+        "atmos_interface": 3522.2,
+        "period":24.6229,
+        "atm_rot":70.88235e-6,
+        "atm_rot_vector":[0.0,-70.88235e-6]
+}
+}

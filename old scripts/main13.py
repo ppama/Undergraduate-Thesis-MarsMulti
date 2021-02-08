@@ -5,8 +5,7 @@ from OrbitPropagator import null_perts
 
 #Cd coefficient of drag, 2.2 spacecraft
 #A area
-
-cb = pd.earth
+cb = pd.mars
 
 # time parameterss
 tspan = 3600*6 # hour
@@ -14,27 +13,13 @@ dt=100.0
 
 if __name__ == '__main__':
     #perturbations dictionary, arbitrary
-    
-    perts=null_perts()
-    perts['thrust']=0.327
-    perts['thrust_direction']=1 # 1 prograde -1 retrograde
-    perts['isp']=4300
-    perts['aero']=True
-    perts['Cd']=2.2
-    perts['A']=(1e-3)**2/4.0 # km^2
 
     # initial mass of spacecraft
     mass0=50.0 # kg
 
     # perigee and apogee
-    rp=215+cb['radius'] # km
+    rp=300+cb['radius'] # km
     ra=300+cb['radius'] # km
-
-    # orbital element angles
-    raan=340.0
-    i=65.2
-    aop=58.0
-    ta=332.0
 
     # calculate other orbital elements
     a=(rp+ra)/2.0 # km

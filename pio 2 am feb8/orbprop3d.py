@@ -8,14 +8,10 @@ import math
 import tools as t_
 from matplotlib.offsetbox import AnchoredText
 
-class OrbitPropagator(object):
-    def __init__(self,planet,craft,sim,fpa,entry_altitude,beta,v_init):
-        #self.r0=state0[:3]
-        #self.v0=state0[3:]
-        r_mag = planet['radius']+entry_altitude
-        v_init = v_init
-        self.r0 = np.array([0,r_mag,0])
-        self.v0 = np.array([v_init*np.cos(fpa),v_init*np.sin(fpa),0])
+class OrbitPropagator:
+    def __init__(self,state0,planet,craft,sim):
+        self.r0=state0[:3]
+        self.v0=state0[3:]
         
         self.y0=self.r0.tolist()+self.v0.tolist()
         self.tspan=sim['timespan']
@@ -140,7 +136,7 @@ class OrbitPropagator(object):
         axs[0].grid(True)
         axs[0].set_ylabel('Altitude (km)')
         axs[0].set_xlabel('Time (s)')
-        anchored_text = AnchoredText(f'Time of Flight: {self.truncate(self.ts[self.step-1,0],2)} s', loc=1)
+        anchored_text = AnchoredText(f'Time of Flight: {self.ts[self.step-1]} s', loc=1)
         axs[0].add_artist(anchored_text)
     
         # plot velocity
@@ -150,8 +146,6 @@ class OrbitPropagator(object):
         axs[1].set_ylabel('Altitude (km)')
         axs[1].set_xlabel('Velocity (km/s)')
         axs[1].set_xlim([0,12])
-        anchored_text = AnchoredText(f'Velocity at impact: {self.truncate(self.vmag[self.step-1,0],2)} km/s', loc=1)
-        axs[1].add_artist(anchored_text)
         
         # plot range
         axs[2].plot(self.range,self.alts)
@@ -160,7 +154,7 @@ class OrbitPropagator(object):
         axs[2].grid(True)
         axs[2].set_ylabel('Altitude (km)')
         axs[2].set_xlabel('Range (km)')
-        anchored_text = AnchoredText(f'Maximum Range: {self.truncate(self.range[self.step-1,0],2)} km', loc=1)
+        anchored_text = AnchoredText(f'Maximum Range: {self.truncate(self.rs[self.step-1,0],2)} km', loc=1)
         axs[2].add_artist(anchored_text)
         
         if show_plot:

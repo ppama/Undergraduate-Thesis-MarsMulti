@@ -17,7 +17,7 @@ atm=np.array([[63.096,2.059e-4],[251.189,5.909e-11],[1000.0,3.561e-15]])
 earth={
     'name':'Earth',
     'mass':5.972e24,
-    'mu':5.972e24*G,
+    'mu':5.972e24*6.67408e-20,
     'radius':6378.0,
     'J2':1.082635854e-3,
     'zs':atm[:,0], # km
@@ -30,7 +30,7 @@ data = np.loadtxt("./mars.dat") # [altitude,temp,pressure,density]
 mars={
     'name':'Mars',
     'mass':6.4171e23,
-    'mu':6.4171e23*G,
+    'mu':6.4171e23*6.67408e-20,
     'radius':3389.5, # km
     'zs':data[:,0], # km
     'temp':data[:,1], # atmospheric temps [K]
@@ -41,6 +41,6 @@ mars={
     'atmos_interface': 3522.2, # atmospheric interface radius [km]
     'period':24.6229, #sidereal rotation period [hr]
     'atm_rot':70.88235e-6, # 1/s planetary rotation freq
-    'atm_rot_vector':np.array([0.0,70.88235e-6]) # 1/s planetary rotation time
+    'atm_rot_vector':np.array([0.0,0.0,-70.88235e-6]) # 1/s planetary rotation time
 }
 

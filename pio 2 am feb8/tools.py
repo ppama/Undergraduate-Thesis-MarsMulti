@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import math as m
-import datetime
 import planetary_data as pd
 
 d2r=np.pi/180.0
@@ -66,7 +65,7 @@ def atm_plot(show_plot=False,save_plot=False,title='Martian Atmospheric Model',f
     fig,axs=plt.subplots(nrows=1,ncols=3,figsize=figsize)
     fig.suptitle(title,fontsize=20)
     
-    zs=np.arange(-10,410,10)
+    zs=np.arange(-10,410,1)
     rho=np.zeros(len(zs))
     for z in range(len(zs)-1):
         rho[z]=calc_atmospheric_density(z)
@@ -81,7 +80,7 @@ def atm_plot(show_plot=False,save_plot=False,title='Martian Atmospheric Model',f
     
     # plot temperature
     axs[1].plot(cb['temp'],cb['zs'])
-    axs[1].set_title('Temperature vs Density')
+    axs[1].set_title('Altitude vs Temperature')
     axs[1].grid(True)
     axs[1].set_ylabel('Altitude (km)')
     axs[1].set_xlabel('Tempearature [K]')
@@ -96,3 +95,43 @@ def atm_plot(show_plot=False,save_plot=False,title='Martian Atmospheric Model',f
     
     plt.show()
     
+def plot_n_traj(rs,labels,cb=pd.mars,show_plot=False,save_plot=False,title='Multiple Trajectories'):
+    # 2D plot
+    fig = plt.figure(figsize=(16,8))
+    ax = fig.add_subplot(111)
+    
+    # plot trajectory and starting point
+    n=0
+    for r in rs:
+        ax.plot(r[:,0],r[:,1],r[:,2],label=labels[n],zorder=10)
+        ax.plot([r[0,0]],[r[0,1]],[r[0,2]],zorder=10)
+        n+=1
+        
+    # check for custom axe limits
+    max_val=np.max(np.abs(rs))
+    
+    # set labels and title
+    ax.set_xlim([-max_val,max_val])
+    ax.set_ylim([-max_val,max_val])
+    ax.set_zlim([-max_val,max_val])
+    ax.set_xlabel('X (km)'); ax.set_ylabel('Y (km)'); ax.set_zlabel('Z (km)')
+    #ax.set_aspect('equal')
+    ax.set_title(title)
+    plt.legend()
+    
+    if show_plot:
+        plt.show()
+        
+def truncate(self,number, decimals=0):
+        """
+        Returns a value truncated to a specific number of decimal places.
+        """
+        if not isinstance(decimals, int):
+            raise TypeError("decimal places must be an integer.")
+        elif decimals < 0:
+            raise ValueError("decimal places has to be 0 or more.")
+        elif decimals == 0:
+            return m.trunc(number)
+
+        factor = 10.0 ** decimals
+        return m.trunc(number * factor) / factor
