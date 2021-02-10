@@ -9,18 +9,20 @@ import tools as t_
 from matplotlib.offsetbox import AnchoredText
 
 class OrbitPropagator(object):
-    def __init__(self,planet,craft,sim,fpa,entry_altitude,beta,v_init):
-        #self.r0=state0[:3]
-        #self.v0=state0[3:]
-        r_mag = planet['radius']+entry_altitude
-        v_init = v_init
-        self.r0 = np.array([0,r_mag,0])
-        self.v0 = np.array([v_init*np.cos(fpa),v_init*np.sin(fpa),0])
+    def __init__(self,planet,craft,sim,state0,beta,fpa):
+        self.r0=state0[:3]
+        self.v0=state0[3:]
+        self.gamma0=[fpa]
+        #r_mag = planet['radius']+entry_altitude
+        #v_init = v_init
+        #self.r0 = np.array([0,r_mag,0])
+        #self.v0 = np.array([v_init*np.cos(fpa),v_init*np.sin(fpa),0])
         
-        self.y0=self.r0.tolist()+self.v0.tolist()
+        self.y0=self.r0.tolist()+self.v0.tolist()+self.gamma0
         self.tspan=sim['timespan']
         
         self.cb=planet
+        self.beta = beta
         self.craft = craft
         self.sim = sim
         self.dt=sim['delta_t']
@@ -29,7 +31,7 @@ class OrbitPropagator(object):
         self.n_steps=int(np.ceil(self.tspan/self.dt))
         
         #initialize variables
-        self.ys=np.zeros((self.n_steps,6))#6 states, xyz, for position and v
+        self.ys=np.zeros((self.n_steps,7))#7 states, xyz, for position and v then gamma
         self.ts=np.zeros((self.n_steps,1))
         self.ts[0]=0
         self.ys[0,:]=self.y0
@@ -39,7 +41,11 @@ class OrbitPropagator(object):
         self.vmag=np.zeros((self.n_steps,1))
         self.vmag[0]=t_.norm(self.v0)
         self.range=np.zeros((self.n_steps,1))
-        self.escape=False
+        self.theta=np.zeros((self.n_steps,1))
+        self.gamma=np.zeros((self.n_steps,1))
+        self.gamma[0]=np.rad2deg(self.gamma0)
+        self.escape = False
+        self.nrev = 0 # revolutions around planet during entry
         
         #initiate solver
         self.solver=ode(self.diffy_q)
@@ -54,7 +60,6 @@ class OrbitPropagator(object):
         Iteratively solves the ODEs using scipy integrate, with a break condition once the stop altitude is reached
         """
         print('Propagating orbit...')
-        
         #propagate orbit, check for max time and stop conditions at each step
         while self.solver.successful() and self.step<self.n_steps:
             #integrate step
@@ -64,10 +69,25 @@ class OrbitPropagator(object):
             self.ts[self.step]=self.solver.t
             self.ys[self.step]=self.solver.y
             
-            # calcualte altitude,gamma,theta at this time step
-            self.vmag[self.step]=t_.norm(self.solver.y[3:])
+            # calculate altitude,gamma,theta at this time step
+            self.vmag[self.step]=t_.norm(self.solver.y[3:6])
             self.alts[self.step]=t_.norm(self.solver.y[:3])-self.cb['radius']
-            self.range[self.step]=np.arctan(self.solver.y[0]/self.solver.y[1])*self.cb['radius'] # convert x tangent to surface distance
+            self.gamma[self.step]=np.rad2deg(self.solver.y[6])
+            #calculate orbital angle subtended
+            if self.solver.y[0]<0:
+                self.theta[self.step]=np.arctan2(self.solver.y[0],self.solver.y[1])+2*np.pi
+            else:
+                self.theta[self.step]=np.arctan2(self.solver.y[0],self.solver.y[1])
+            #calculate range based on angle subtended
+            #if self.solver.y[0] >= 0.0:
+            #    self.range[self.step]=self.cb['radius']*(self.nrev*2*np.pi+np.pi/2-self.theta[self.step])
+            #elif self.solver.y[0] < 0.0:
+            #    self.range[self.step]=self.cb['radius']*(self.nrev*2*np.pi+(5*np.pi/2)-self.theta[self.step])
+            self.range[self.step]=(2*np.pi*self.nrev+self.theta[self.step])*self.cb['radius'] # convert x tangent to surface distance
+            if np.abs(self.theta[self.step]-self.theta[self.step-1]) > 6.28: 
+                self.range[self.step] = 2*np.pi*self.cb['radius'] #range at 1 revolution = 2pi*r
+                self.nrev +=1 # revolution counter
+
             altcheck=self.alts[self.step]
             self.step+=1
             
@@ -83,12 +103,12 @@ class OrbitPropagator(object):
         # extract arrays at the step where the propagation stopped
         self.ts=self.ts[:self.step]
         self.rs=self.ys[:self.step,:3]
-        self.vs=self.ys[:self.step,3:]
+        self.vs=self.ys[:self.step,3:6]
         self.alts=self.alts[:self.step]
         self.vmag=self.vmag[:self.step]
         self.range=self.range[:self.step]
-        
-        
+        self.gamma=self.gamma[:self.step]
+        self.theta=self.theta[:self.step]
         
     def diffy_q(self,t,y):
         """
@@ -104,7 +124,7 @@ class OrbitPropagator(object):
         returns V and A vectors
         """
         # unpack state
-        rx,ry,rz,vx,vy,vz=y
+        rx,ry,rz,vx,vy,vz,gamma=y
         r=np.array([rx,ry,rz])
         v=np.array([vx,vy,vz])
         
@@ -113,22 +133,27 @@ class OrbitPropagator(object):
         
         # two body acceleration
         a=-r*self.cb['mu']/norm_r**3
-        
+        #a[0] = -r[0]*self.cb['mu']/norm_r**3
+        #a[1] = -r[1]*self.cb['mu']/norm_r**3*np.sin(gamma)
+        #a[2] = -r[2]*self.cb['mu']/norm_r**3
         # calculate altitude and air density
         z=norm_r-self.cb['radius']
         rho=t_.calc_atmospheric_density(z)
+        
         # calculate motion of spacecraft w/ respect to a rotating atmosphere
         v_rel=v-np.cross(self.cb['atm_rot_vector'],r)
-        drag=-v_rel*0.5*rho*t_.norm(v_rel)*self.craft['ballistic_coef']
+        drag=-v_rel*0.5*rho*t_.norm(v_rel)/self.beta
+        gamma = (self.cb['mu']/(t_.norm(v_rel)*norm_r**2)-t_.norm(v_rel)/norm_r)*np.cos(gamma)
+        #gamma = np.arctan(vy/vx)
         a+=drag
-        return [vx,vy,vz,a[0],a[1],a[2]]
+        return [vx,vy,vz,a[0],a[1],a[2],gamma]
     
    
     # plot state over time
     def plot_state(self,hours=False,days=False,show_plot=False,save_plot=False,figsize=(16,8),dpi=500):
         print('Plotting Trajectory Profile...')
         #create figure and axes instances
-        fig,axs=plt.subplots(nrows=1,ncols=3,figsize=figsize)
+        fig,axs=plt.subplots(nrows=1,ncols=4,figsize=figsize)
         
         # figure title
         title = f'Trajectory Profile (beta={self.craft["ballistic_coef"]})'
@@ -162,6 +187,15 @@ class OrbitPropagator(object):
         axs[2].set_xlabel('Range (km)')
         anchored_text = AnchoredText(f'Maximum Range: {self.truncate(self.range[self.step-1,0],2)} km', loc=1)
         axs[2].add_artist(anchored_text)
+        
+        # plot FPA
+        axs[3].plot(self.ts,self.gamma)
+        axs[3].set_title('Flight Path Angle vs Time')
+        axs[3].grid(True)
+        axs[3].set_ylabel('Flight Path Angle (degrees)')
+        axs[3].set_xlabel('Time (s)')
+        anchored_text = AnchoredText(f'Final FPA: {self.truncate(self.gamma[self.step-1,0],2)} degrees', loc=1)
+        axs[3].add_artist(anchored_text)
         
         if show_plot:
             plt.show()
