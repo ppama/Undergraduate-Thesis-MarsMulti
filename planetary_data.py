@@ -35,12 +35,12 @@ mars={
     'zs':data[:,0], # km
     'temp':data[:,1], # atmospheric temps [K]
     'p':data[:,2], #atmospheric pressure [mb]=100Pa
-    'rhos':data[:,3], # density [g/cm^3]
+    'rhos':data[:,3]*10**9, # density [kg/m^3] -> [kg/km^3]
     'k':1.3, # ratio of specific heats Cp/CV
     'Rgas':192, # gas constant [J/kg/K]
     'atmos_interface': 3522.2, # atmospheric interface radius [km]
     'period':24.6229, #sidereal rotation period [hr]
     'atm_rot':70.88235e-6, # 1/s planetary rotation freq
-    'atm_rot_vector':np.array([0.0,0.0,-70.88235e-6]) # 1/s planetary rotation time
+    'atm_rot_vector':np.array([0.0,0.0,-70.88235e-6]) # rad/s planetary rotation time, negative to go clockwise
 }
 

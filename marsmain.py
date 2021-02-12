@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import sys
 import json
 import os
-import csv
 
 class craftParams(object):
         def __init__(self,fpa,entry_altitude,beta,v_init):
@@ -31,7 +30,7 @@ def LandingPrecision(planet,craft,sim,state0,beta,fpa,deltav_mag,test_type):
             print(f"done in {count} iterations.")
             
         elif test_type == 'deltav':
-            while deltav_mag < -0.01:
+            while deltav_mag <= -0.01:
                 op=OP(planet,craft,sim,state0,beta,fpa)
                 if op.escape:
                     break
@@ -81,16 +80,38 @@ if __name__ == '__main__':
     #Simulate Baseline profile
     fpa = np.radians(craft['fpa']) # entry path angle
     entry_altitude = craft['entry_altitude'] 
-    beta = craft['ballistic_coef']
+    beta = craft['ballistic_coef'] * 10**6 # ballistic coeff. [kg/m^2] -> [kg/km^2]
     r_mag = planet['radius']+ entry_altitude
     v_mag = np.sqrt(planet['mu']/(planet['radius']+entry_altitude))
-    deltav_mag = -0.02
-    #fpa = np.radians(-6.5)
+    deltav_mag = -0.01
+    fpa = np.radians(0)
     v0 = np.array([(v_mag+deltav_mag)*np.cos(fpa),(v_mag+deltav_mag)*np.sin(fpa),0])
     r0 = np.array([0,r_mag,0])
     state0 = np.concatenate((r0,v0),axis=0)
     baseline=OP(planet,craft,sim,state0,beta,fpa)
     baseRange=baseline.range[baseline.step-1]
+    baseline.plot_state(show_plot=True)
+    baseline.plot_3d(show_plot=True)
+    
+    beta = 0.1 * 10**6
+    v0 = np.array([(v_mag+deltav_mag)*np.cos(fpa),(v_mag+deltav_mag)*np.sin(fpa),0])
+    r0 = np.array([0,r_mag,0])
+    state0 = np.concatenate((r0,v0),axis=0)
+    #op1=OP(planet,craft,sim,state0,beta,fpa)
+    
+    beta = 10
+    v0 = np.array([(v_mag+deltav_mag)*np.cos(fpa),(v_mag+deltav_mag)*np.sin(fpa),0])
+    r0 = np.array([0,r_mag,0])
+    state0 = np.concatenate((r0,v0),axis=0)
+    #op2=OP(planet,craft,sim,state0,beta,fpa)
+    
+    beta = 100
+    v0 = np.array([(v_mag+deltav_mag)*np.cos(fpa),(v_mag+deltav_mag)*np.sin(fpa),0])
+    r0 = np.array([0,r_mag,0])
+    state0 = np.concatenate((r0,v0),axis=0)
+    #op3=OP(planet,craft,sim,state0,beta,fpa)
+    
+    #t_.plot_n_orbits([op1.rs,baseline.rs,op2.rs,op3.rs],xrange=[op1.range[op1.step-1],baseline.range[baseline.step-1],op2.range[op2.step-1]],cb=planet,labels=['beta=0.1','beta=1','beta=10','beta=100'],show_plot=True)
     
     #fpa = np.radians(-90)
     #v0 = np.array([(v_mag+deltav_mag)*np.cos(fpa),(v_mag+deltav_mag)*np.sin(fpa),0])
@@ -100,14 +121,16 @@ if __name__ == '__main__':
     
     #deltav_range=LandingPrecision(planet,craft,sim,state0,beta,fpa,deltav_mag,test_type='deltav')
     #fpa_range=LandingPrecision(planet,craft,sim,state0,beta,fpa,deltav_mag,test_type='fpa')
-    beta_range=LandingPrecision(planet,craft,sim,state0,beta,fpa,deltav_mag,test_type='beta')
+    #beta_range=LandingPrecision(planet,craft,sim,state0,beta,fpa,deltav_mag,test_type='beta')
     
-    f=open("deltavrange.csv","w")
-    for elem in deltav_range:
-        f.write(f"{elem[0]},{elem[1][0]}\n") #2nd element saves as 1 element list so make address [1][0] ¯\_(ツ)_/¯
-    f.close()
+    #f=open("deltavrange.csv","w")
+    #for elem in deltav_range:
+    #    f.write(f"{elem[0]},{elem[1][0]}\n") #2nd element saves as 1 element list so make address [1][0] ¯\_(ツ)_/¯
+    #f.close()
     
-    baseline.plot_state(show_plot=True)
-    baseline.plot_3d(show_plot=True)
+    #t_.atm_plot()
+    
+    
+    
     
     

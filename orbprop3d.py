@@ -119,7 +119,7 @@ class OrbitPropagator(object):
         relative velocity = v - cross product between r vector and planetary rotation vector 
         (the latter is clockwise to assume reentry is in the direction of rotation, +x-axis)
         rho = atmospheric density at altitude z
-        drag = 0.5*v_rel*rho*v_rel*beta
+        drag = 0.5*v_rel^2*rho/beta
         dv/dt = g - drag
         returns V and A vectors
         """
@@ -307,3 +307,5 @@ class OrbitPropagator(object):
 
         factor = 10.0 ** decimals
         return math.trunc(number * factor) / factor
+    
+    

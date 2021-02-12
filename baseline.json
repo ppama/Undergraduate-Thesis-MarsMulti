@@ -18,7 +18,7 @@
     "ballistic_coef": 1,
     "lift_drag": 0,
     "entry_altitude": 125, 
-    "fpa": -6.5, 
+    "fpa": 0, 
     "velocity": 10, 
     "stop_alt": 0
 },
